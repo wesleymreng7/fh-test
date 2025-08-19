@@ -1,0 +1,19 @@
+services:
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566" # Edge port
+      - "4510-4559:4510-4559" # Lambda ports
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - SERVICES=cloudformation,apigateway,apigatewayv2,lambda,logs,iam,sqs,dynamodb,events,ssm,cloudwatch
+      - DEBUG=1
+      - AWS_DEFAULT_REGION=us-east-1
+      - LAMBDA_EXECUTOR=docker-reuse
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "localstack_data:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+volumes:
+  localstack_data:

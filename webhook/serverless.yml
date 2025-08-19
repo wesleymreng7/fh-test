@@ -1,0 +1,153 @@
+service: logistics-webhooks
+frameworkVersion: '^4'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'local'}
+  architecture: x86_64
+  environment:
+    NODE_OPTIONS: --enable-source-maps
+    SQS_QUEUE_URL: !Ref IngestQueue
+    EVENT_TABLE: ${self:service}-event-idempotency
+    DRIVER_STATE_TABLE: ${self:service}-driver-state
+    ROUTES_TABLE: ${self:service}-routes
+    # Poller config
+    SIM_API_BASE: ${env:SIM_API_BASE, 'http://host.docker.internal:4001'}
+    POLLER_CONCURRENCY: ${env:POLLER_CONCURRENCY, '8'}
+    # If/when you enable the bus:
+    EVENT_BUS_NAME: ${self:service}-bus
+    HMAC_SECRET_GPS: ${env:HMAC_SECRET_GPS, 'localdev'}
+    STAGE: ${self:provider.stage}
+  apiGateway:
+    shouldStartNameWithService: true
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: [sqs:SendMessage]
+          Resource: !GetAtt IngestQueue.Arn
+        - Effect: Allow
+          Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem]
+          Resource:
+            - !GetAtt EventIdempotencyTable.Arn
+            - !GetAtt DriverStateTable.Arn
+            - !GetAtt RoutesTable.Arn
+        # Uncomment if you set EVENT_BUS_NAME:
+        - Effect: Allow
+          Action: [events:PutEvents]
+          Resource: "*"
+
+plugins:
+  - serverless-localstack
+  - serverless-offline # Add this line
+
+custom:
+  localstack:
+    debug: true
+    stages:
+      - local
+    host: http://localhost
+    edgePort: 4566
+    autostart: false
+    # lambda.mountCode is handy, but with esbuild bundling you’ll usually redeploy
+    lambda:
+      mountCode: false
+
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    format: cjs            # safest; avoid ESM/CJS mismatches
+    external: ['express']   
+
+
+functions:
+  webhooks:
+    handler: src/app.handler
+    # Catch-all proxy so Express gets every route
+    events:
+      - http:
+          method: ANY
+          path: /
+          cors: true
+          integration: lambda-proxy   # make proxy explicit for REST v1
+      - http:
+          method: ANY
+          path: /{proxy+}
+          cors: true
+          integration: lambda-proxy
+
+  processor:
+    handler: src/processor.handler
+    events:
+      - sqs:
+          arn: !GetAtt IngestQueue.Arn
+          batchSize: 10
+          maximumBatchingWindow: 5
+
+  tmsPoller:
+    handler: src/poller.handler
+    timeout: 30
+    events:
+      - schedule: rate(2 minutes)   # EventBridge rule (simple)
+
+resources:
+  Outputs:
+    RestApiId:
+      Value: { Ref: ApiGatewayRestApi }
+  Resources:
+    IngestDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-dlq
+        MessageRetentionPeriod: 1209600
+    IngestQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-ingest
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt IngestDLQ.Arn
+          maxReceiveCount: 5
+
+    EventIdempotencyTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-event-idempotency
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: eventId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: eventId
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+
+    DriverStateTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-driver-state
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: driverId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: driverId
+            KeyType: HASH
+
+    RoutesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-routes
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: routeId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: routeId
+            KeyType: HASH

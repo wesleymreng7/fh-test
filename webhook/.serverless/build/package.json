@@ -1,0 +1,21 @@
+{
+  "name": "webhook",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "serverless deploy",
+    "remove": "serverless remove",
+    "offline": "serverless offline",
+    "local:up": "docker compose up -d",
+    "local:down": "docker compose down -v",
+    "deploy:local": "AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_ENDPOINT_URL=http://localhost:4566 LOCAL_STACK=true serverless deploy --stage local",
+    "remove:local": "AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_ENDPOINT_URL=http://localhost:4566 LOCAL_STACK=true serverless remove --stage local"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {}
+}

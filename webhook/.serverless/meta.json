@@ -1,0 +1,2854 @@
+{
+  "/home/wesley/fh-test/webhook/serverless.yml": {
+    "versionFramework": "4.18.0",
+    "servicePath": "/home/wesley/fh-test/webhook/serverless.yml",
+    "serviceConfigFileName": "serverless.yml",
+    "service": {
+      "service": "logistics-webhooks",
+      "frameworkVersion": "^4",
+      "provider": {
+        "name": "aws",
+        "runtime": "nodejs20.x",
+        "region": "us-east-1",
+        "stage": "local",
+        "architecture": "x86_64",
+        "environment": {
+          "NODE_OPTIONS": "--enable-source-maps",
+          "SQS_QUEUE_URL": {
+            "Ref": "IngestQueue"
+          },
+          "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+          "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+          "ROUTES_TABLE": "logistics-webhooks-routes",
+          "SIM_API_BASE": "http://host.docker.internal:4001",
+          "POLLER_CONCURRENCY": "8",
+          "EVENT_BUS_NAME": "logistics-webhooks-bus",
+          "HMAC_SECRET_GPS": "<REDACTED>",
+          "STAGE": "local"
+        },
+        "apiGateway": {
+          "shouldStartNameWithService": true
+        },
+        "iam": {
+          "role": {
+            "statements": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "sqs:SendMessage"
+                ],
+                "Resource": {
+                  "Fn::GetAtt": [
+                    "IngestQueue",
+                    "Arn"
+                  ]
+                }
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "dynamodb:GetItem",
+                  "dynamodb:PutItem",
+                  "dynamodb:UpdateItem"
+                ],
+                "Resource": [
+                  {
+                    "Fn::GetAtt": [
+                      "EventIdempotencyTable",
+                      "Arn"
+                    ]
+                  },
+                  {
+                    "Fn::GetAtt": [
+                      "DriverStateTable",
+                      "Arn"
+                    ]
+                  },
+                  {
+                    "Fn::GetAtt": [
+                      "RoutesTable",
+                      "Arn"
+                    ]
+                  }
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "events:PutEvents"
+                ],
+                "Resource": "*"
+              }
+            ]
+          }
+        },
+        "versionFunctions": true,
+        "compiledCloudFormationTemplate": {
+          "AWSTemplateFormatVersion": "2010-09-09",
+          "Description": "The AWS CloudFormation template for this Serverless application",
+          "Resources": {
+            "WebhooksLogGroup": {
+              "Type": "AWS::Logs::LogGroup",
+              "Properties": {
+                "LogGroupName": "/aws/lambda/logistics-webhooks-local-webhooks"
+              }
+            },
+            "ProcessorLogGroup": {
+              "Type": "AWS::Logs::LogGroup",
+              "Properties": {
+                "LogGroupName": "/aws/lambda/logistics-webhooks-local-processor"
+              }
+            },
+            "TmsPollerLogGroup": {
+              "Type": "AWS::Logs::LogGroup",
+              "Properties": {
+                "LogGroupName": "/aws/lambda/logistics-webhooks-local-tmsPoller"
+              }
+            },
+            "IamRoleLambdaExecution": {
+              "Type": "AWS::IAM::Role",
+              "Properties": {
+                "AssumeRolePolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Service": [
+                          "lambda.amazonaws.com"
+                        ]
+                      },
+                      "Action": [
+                        "sts:AssumeRole"
+                      ]
+                    }
+                  ]
+                },
+                "Policies": [
+                  {
+                    "PolicyName": {
+                      "Fn::Join": [
+                        "-",
+                        [
+                          "logistics-webhooks",
+                          "local",
+                          "lambda"
+                        ]
+                      ]
+                    },
+                    "PolicyDocument": {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:CreateLogStream",
+                            "logs:CreateLogGroup",
+                            "logs:TagResource"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/logistics-webhooks-local*:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:PutLogEvents"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/logistics-webhooks-local*:*:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "sqs:SendMessage"
+                          ],
+                          "Resource": {
+                            "Fn::GetAtt": [
+                              "IngestQueue",
+                              "Arn"
+                            ]
+                          }
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "dynamodb:GetItem",
+                            "dynamodb:PutItem",
+                            "dynamodb:UpdateItem"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::GetAtt": [
+                                "EventIdempotencyTable",
+                                "Arn"
+                              ]
+                            },
+                            {
+                              "Fn::GetAtt": [
+                                "DriverStateTable",
+                                "Arn"
+                              ]
+                            },
+                            {
+                              "Fn::GetAtt": [
+                                "RoutesTable",
+                                "Arn"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "events:PutEvents"
+                          ],
+                          "Resource": "*"
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "sqs:ReceiveMessage",
+                            "sqs:DeleteMessage",
+                            "sqs:GetQueueAttributes"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::GetAtt": [
+                                "IngestQueue",
+                                "Arn"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "Path": "/",
+                "RoleName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "logistics-webhooks",
+                      "local",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "lambdaRole"
+                    ]
+                  ]
+                }
+              }
+            },
+            "WebhooksLambdaFunction": {
+              "Type": "AWS::Lambda::Function",
+              "Properties": {
+                "Code": {
+                  "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+                  "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+                },
+                "Handler": "src/app.handler",
+                "Runtime": "nodejs20.x",
+                "FunctionName": "logistics-webhooks-local-webhooks",
+                "MemorySize": 1024,
+                "Timeout": 6,
+                "Architectures": [
+                  "x86_64"
+                ],
+                "Environment": {
+                  "Variables": {
+                    "NODE_OPTIONS": "--enable-source-maps",
+                    "SQS_QUEUE_URL": {
+                      "Ref": "IngestQueue"
+                    },
+                    "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                    "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                    "ROUTES_TABLE": "logistics-webhooks-routes",
+                    "SIM_API_BASE": "http://host.docker.internal:4001",
+                    "POLLER_CONCURRENCY": "8",
+                    "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                    "HMAC_SECRET_GPS": "<REDACTED>",
+                    "STAGE": "local"
+                  }
+                },
+                "Role": {
+                  "Fn::GetAtt": [
+                    "IamRoleLambdaExecution",
+                    "Arn"
+                  ]
+                }
+              },
+              "DependsOn": [
+                "WebhooksLogGroup"
+              ]
+            },
+            "ProcessorLambdaFunction": {
+              "Type": "AWS::Lambda::Function",
+              "Properties": {
+                "Code": {
+                  "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+                  "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+                },
+                "Handler": "src/processor.handler",
+                "Runtime": "nodejs20.x",
+                "FunctionName": "logistics-webhooks-local-processor",
+                "MemorySize": 1024,
+                "Timeout": 6,
+                "Architectures": [
+                  "x86_64"
+                ],
+                "Environment": {
+                  "Variables": {
+                    "NODE_OPTIONS": "--enable-source-maps",
+                    "SQS_QUEUE_URL": {
+                      "Ref": "IngestQueue"
+                    },
+                    "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                    "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                    "ROUTES_TABLE": "logistics-webhooks-routes",
+                    "SIM_API_BASE": "http://host.docker.internal:4001",
+                    "POLLER_CONCURRENCY": "8",
+                    "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                    "HMAC_SECRET_GPS": "<REDACTED>",
+                    "STAGE": "local"
+                  }
+                },
+                "Role": {
+                  "Fn::GetAtt": [
+                    "IamRoleLambdaExecution",
+                    "Arn"
+                  ]
+                }
+              },
+              "DependsOn": [
+                "ProcessorLogGroup"
+              ]
+            },
+            "TmsPollerLambdaFunction": {
+              "Type": "AWS::Lambda::Function",
+              "Properties": {
+                "Code": {
+                  "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+                  "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+                },
+                "Handler": "src/poller.handler",
+                "Runtime": "nodejs20.x",
+                "FunctionName": "logistics-webhooks-local-tmsPoller",
+                "MemorySize": 1024,
+                "Timeout": 30,
+                "Architectures": [
+                  "x86_64"
+                ],
+                "Environment": {
+                  "Variables": {
+                    "NODE_OPTIONS": "--enable-source-maps",
+                    "SQS_QUEUE_URL": {
+                      "Ref": "IngestQueue"
+                    },
+                    "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                    "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                    "ROUTES_TABLE": "logistics-webhooks-routes",
+                    "SIM_API_BASE": "http://host.docker.internal:4001",
+                    "POLLER_CONCURRENCY": "8",
+                    "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                    "HMAC_SECRET_GPS": "<REDACTED>",
+                    "STAGE": "local"
+                  }
+                },
+                "Role": {
+                  "Fn::GetAtt": [
+                    "IamRoleLambdaExecution",
+                    "Arn"
+                  ]
+                }
+              },
+              "DependsOn": [
+                "TmsPollerLogGroup"
+              ]
+            },
+            "WebhooksLambdaVersionjkTxadoPLI0FZmPE0h3OSmmAR9J9ErKgMdmYCpnjI": {
+              "Type": "AWS::Lambda::Version",
+              "DeletionPolicy": "Retain",
+              "Properties": {
+                "FunctionName": {
+                  "Ref": "WebhooksLambdaFunction"
+                },
+                "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+              }
+            },
+            "ProcessorLambdaVersionZ0OtHuy8ayBPD7I6zbh91vZMi3RrKBm4m9ELxJw": {
+              "Type": "AWS::Lambda::Version",
+              "DeletionPolicy": "Retain",
+              "Properties": {
+                "FunctionName": {
+                  "Ref": "ProcessorLambdaFunction"
+                },
+                "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+              }
+            },
+            "TmsPollerLambdaVersionzGc84HkR6pnAFvMR291bChhK2BBdmEuwQs8c85Hqy4": {
+              "Type": "AWS::Lambda::Version",
+              "DeletionPolicy": "Retain",
+              "Properties": {
+                "FunctionName": {
+                  "Ref": "TmsPollerLambdaFunction"
+                },
+                "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+              }
+            },
+            "TmsPollerEventsRuleSchedule1": {
+              "Type": "AWS::Events::Rule",
+              "Properties": {
+                "ScheduleExpression": "rate(2 minutes)",
+                "State": "ENABLED",
+                "Targets": [
+                  {
+                    "Arn": {
+                      "Fn::GetAtt": [
+                        "TmsPollerLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    "Id": "tmsPollerSchedule"
+                  }
+                ]
+              }
+            },
+            "TmsPollerLambdaPermissionEventsRuleSchedule1": {
+              "Type": "AWS::Lambda::Permission",
+              "Properties": {
+                "FunctionName": {
+                  "Fn::GetAtt": [
+                    "TmsPollerLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                  "Fn::GetAtt": [
+                    "TmsPollerEventsRuleSchedule1",
+                    "Arn"
+                  ]
+                }
+              }
+            },
+            "ApiGatewayRestApi": {
+              "Type": "AWS::ApiGateway::RestApi",
+              "Properties": {
+                "Name": "logistics-webhooks-local",
+                "EndpointConfiguration": {
+                  "Types": [
+                    "EDGE"
+                  ]
+                },
+                "Policy": ""
+              }
+            },
+            "ApiGatewayResourceProxyVar": {
+              "Type": "AWS::ApiGateway::Resource",
+              "Properties": {
+                "ParentId": {
+                  "Fn::GetAtt": [
+                    "ApiGatewayRestApi",
+                    "RootResourceId"
+                  ]
+                },
+                "PathPart": "{proxy+}",
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                }
+              }
+            },
+            "ApiGatewayMethodOptions": {
+              "Type": "AWS::ApiGateway::Method",
+              "Properties": {
+                "AuthorizationType": "NONE",
+                "HttpMethod": "OPTIONS",
+                "MethodResponses": [
+                  {
+                    "StatusCode": "200",
+                    "ResponseParameters": {
+                      "method.response.header.Access-Control-Allow-Origin": true,
+                      "method.response.header.Access-Control-Allow-Headers": true,
+                      "method.response.header.Access-Control-Allow-Methods": true
+                    },
+                    "ResponseModels": {}
+                  }
+                ],
+                "RequestParameters": {},
+                "Integration": {
+                  "Type": "MOCK",
+                  "RequestTemplates": {
+                    "application/json": "{statusCode:200}"
+                  },
+                  "ContentHandling": "CONVERT_TO_TEXT",
+                  "IntegrationResponses": [
+                    {
+                      "StatusCode": "200",
+                      "ResponseParameters": {
+                        "method.response.header.Access-Control-Allow-Origin": "'*'",
+                        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,DELETE,GET,HEAD,PATCH,POST,PUT'"
+                      },
+                      "ResponseTemplates": {
+                        "application/json": ""
+                      }
+                    }
+                  ]
+                },
+                "ResourceId": {
+                  "Fn::GetAtt": [
+                    "ApiGatewayRestApi",
+                    "RootResourceId"
+                  ]
+                },
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                }
+              }
+            },
+            "ApiGatewayMethodProxyVarOptions": {
+              "Type": "AWS::ApiGateway::Method",
+              "Properties": {
+                "AuthorizationType": "NONE",
+                "HttpMethod": "OPTIONS",
+                "MethodResponses": [
+                  {
+                    "StatusCode": "200",
+                    "ResponseParameters": {
+                      "method.response.header.Access-Control-Allow-Origin": true,
+                      "method.response.header.Access-Control-Allow-Headers": true,
+                      "method.response.header.Access-Control-Allow-Methods": true
+                    },
+                    "ResponseModels": {}
+                  }
+                ],
+                "RequestParameters": {},
+                "Integration": {
+                  "Type": "MOCK",
+                  "RequestTemplates": {
+                    "application/json": "{statusCode:200}"
+                  },
+                  "ContentHandling": "CONVERT_TO_TEXT",
+                  "IntegrationResponses": [
+                    {
+                      "StatusCode": "200",
+                      "ResponseParameters": {
+                        "method.response.header.Access-Control-Allow-Origin": "'*'",
+                        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,DELETE,GET,HEAD,PATCH,POST,PUT'"
+                      },
+                      "ResponseTemplates": {
+                        "application/json": ""
+                      }
+                    }
+                  ]
+                },
+                "ResourceId": {
+                  "Ref": "ApiGatewayResourceProxyVar"
+                },
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                }
+              }
+            },
+            "ApiGatewayMethodAny": {
+              "Type": "AWS::ApiGateway::Method",
+              "Properties": {
+                "HttpMethod": "ANY",
+                "RequestParameters": {},
+                "ResourceId": {
+                  "Fn::GetAtt": [
+                    "ApiGatewayRestApi",
+                    "RootResourceId"
+                  ]
+                },
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                "ApiKeyRequired": "<REDACTED>",
+                "AuthorizationType": "NONE",
+                "Integration": {
+                  "IntegrationHttpMethod": "POST",
+                  "Type": "AWS_PROXY",
+                  "Uri": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":apigateway:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":lambda:path/2015-03-31/functions/",
+                        {
+                          "Fn::GetAtt": [
+                            "WebhooksLambdaFunction",
+                            "Arn"
+                          ]
+                        },
+                        "/invocations"
+                      ]
+                    ]
+                  }
+                },
+                "MethodResponses": []
+              },
+              "DependsOn": [
+                "WebhooksLambdaPermissionApiGateway"
+              ]
+            },
+            "ApiGatewayMethodProxyVarAny": {
+              "Type": "AWS::ApiGateway::Method",
+              "Properties": {
+                "HttpMethod": "ANY",
+                "RequestParameters": {},
+                "ResourceId": {
+                  "Ref": "ApiGatewayResourceProxyVar"
+                },
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                "ApiKeyRequired": "<REDACTED>",
+                "AuthorizationType": "NONE",
+                "Integration": {
+                  "IntegrationHttpMethod": "POST",
+                  "Type": "AWS_PROXY",
+                  "Uri": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":apigateway:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":lambda:path/2015-03-31/functions/",
+                        {
+                          "Fn::GetAtt": [
+                            "WebhooksLambdaFunction",
+                            "Arn"
+                          ]
+                        },
+                        "/invocations"
+                      ]
+                    ]
+                  }
+                },
+                "MethodResponses": []
+              },
+              "DependsOn": [
+                "WebhooksLambdaPermissionApiGateway"
+              ]
+            },
+            "ApiGatewayDeployment1755605974666": {
+              "Type": "AWS::ApiGateway::Deployment",
+              "Properties": {
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                "StageName": "local"
+              },
+              "DependsOn": [
+                "ApiGatewayMethodOptions",
+                "ApiGatewayMethodProxyVarOptions",
+                "ApiGatewayMethodAny",
+                "ApiGatewayMethodProxyVarAny"
+              ]
+            },
+            "WebhooksLambdaPermissionApiGateway": {
+              "Type": "AWS::Lambda::Permission",
+              "Properties": {
+                "FunctionName": {
+                  "Fn::GetAtt": [
+                    "WebhooksLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "apigateway.amazonaws.com",
+                "SourceArn": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":execute-api:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":",
+                      {
+                        "Ref": "ApiGatewayRestApi"
+                      },
+                      "/*/*"
+                    ]
+                  ]
+                }
+              }
+            },
+            "ProcessorEventSourceMappingSQSIngestQueue": {
+              "Type": "AWS::Lambda::EventSourceMapping",
+              "DependsOn": [
+                "IamRoleLambdaExecution"
+              ],
+              "Properties": {
+                "BatchSize": 10,
+                "MaximumBatchingWindowInSeconds": 5,
+                "EventSourceArn": {
+                  "Fn::GetAtt": [
+                    "IngestQueue",
+                    "Arn"
+                  ]
+                },
+                "FunctionName": {
+                  "Fn::GetAtt": [
+                    "ProcessorLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Enabled": true
+              }
+            },
+            "IngestDLQ": {
+              "Type": "AWS::SQS::Queue",
+              "Properties": {
+                "QueueName": "logistics-webhooks-dlq",
+                "MessageRetentionPeriod": 1209600
+              }
+            },
+            "IngestQueue": {
+              "Type": "AWS::SQS::Queue",
+              "Properties": {
+                "QueueName": "logistics-webhooks-ingest",
+                "RedrivePolicy": {
+                  "deadLetterTargetArn": {
+                    "Fn::GetAtt": [
+                      "IngestDLQ",
+                      "Arn"
+                    ]
+                  },
+                  "maxReceiveCount": 5
+                }
+              }
+            },
+            "EventIdempotencyTable": {
+              "Type": "AWS::DynamoDB::Table",
+              "Properties": {
+                "TableName": "logistics-webhooks-event-idempotency",
+                "BillingMode": "PAY_PER_REQUEST",
+                "AttributeDefinitions": [
+                  {
+                    "AttributeName": "eventId",
+                    "AttributeType": "S"
+                  }
+                ],
+                "KeySchema": [
+                  {
+                    "AttributeName": "eventId",
+                    "KeyType": "HASH"
+                  }
+                ],
+                "TimeToLiveSpecification": {
+                  "AttributeName": "ttl",
+                  "Enabled": true
+                }
+              }
+            },
+            "DriverStateTable": {
+              "Type": "AWS::DynamoDB::Table",
+              "Properties": {
+                "TableName": "logistics-webhooks-driver-state",
+                "BillingMode": "PAY_PER_REQUEST",
+                "AttributeDefinitions": [
+                  {
+                    "AttributeName": "driverId",
+                    "AttributeType": "S"
+                  }
+                ],
+                "KeySchema": [
+                  {
+                    "AttributeName": "driverId",
+                    "KeyType": "HASH"
+                  }
+                ]
+              }
+            },
+            "RoutesTable": {
+              "Type": "AWS::DynamoDB::Table",
+              "Properties": {
+                "TableName": "logistics-webhooks-routes",
+                "BillingMode": "PAY_PER_REQUEST",
+                "AttributeDefinitions": [
+                  {
+                    "AttributeName": "routeId",
+                    "AttributeType": "S"
+                  }
+                ],
+                "KeySchema": [
+                  {
+                    "AttributeName": "routeId",
+                    "KeyType": "HASH"
+                  }
+                ]
+              }
+            }
+          },
+          "Outputs": {
+            "ServerlessDeploymentBucketName": {
+              "Value": "serverless-framework-deployments-us-east-1-37398299-02eb",
+              "Export": {
+                "Name": "sls-logistics-webhooks-local-ServerlessDeploymentBucketName"
+              }
+            },
+            "WebhooksLambdaFunctionQualifiedArn": {
+              "Description": "Current Lambda function version",
+              "Value": {
+                "Ref": "WebhooksLambdaVersionjkTxadoPLI0FZmPE0h3OSmmAR9J9ErKgMdmYCpnjI"
+              },
+              "Export": {
+                "Name": "sls-logistics-webhooks-local-WebhooksLambdaFunctionQualifiedArn"
+              }
+            },
+            "ProcessorLambdaFunctionQualifiedArn": {
+              "Description": "Current Lambda function version",
+              "Value": {
+                "Ref": "ProcessorLambdaVersionZ0OtHuy8ayBPD7I6zbh91vZMi3RrKBm4m9ELxJw"
+              },
+              "Export": {
+                "Name": "sls-logistics-webhooks-local-ProcessorLambdaFunctionQualifiedArn"
+              }
+            },
+            "TmsPollerLambdaFunctionQualifiedArn": {
+              "Description": "Current Lambda function version",
+              "Value": {
+                "Ref": "TmsPollerLambdaVersionzGc84HkR6pnAFvMR291bChhK2BBdmEuwQs8c85Hqy4"
+              },
+              "Export": {
+                "Name": "sls-logistics-webhooks-local-TmsPollerLambdaFunctionQualifiedArn"
+              }
+            },
+            "ServiceEndpoint": {
+              "Description": "URL of the service endpoint",
+              "Value": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "https://",
+                    {
+                      "Ref": "ApiGatewayRestApi"
+                    },
+                    ".execute-api.",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ".",
+                    {
+                      "Ref": "AWS::URLSuffix"
+                    },
+                    "/local"
+                  ]
+                ]
+              },
+              "Export": {
+                "Name": "sls-logistics-webhooks-local-ServiceEndpoint"
+              }
+            },
+            "RestApiId": {
+              "Value": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          }
+        },
+        "vpc": {}
+      },
+      "plugins": [
+        "serverless-localstack",
+        "serverless-offline"
+      ],
+      "custom": {
+        "localstack": {
+          "debug": true,
+          "stages": [
+            "local"
+          ],
+          "host": "http://localhost",
+          "edgePort": 4566,
+          "autostart": false,
+          "lambda": {
+            "mountCode": false
+          }
+        },
+        "esbuild": {
+          "bundle": true,
+          "minify": false,
+          "sourcemap": true,
+          "target": "node20",
+          "platform": "node",
+          "format": "cjs",
+          "external": [
+            "express"
+          ]
+        }
+      },
+      "functions": {
+        "webhooks": {
+          "handler": "src/app.handler",
+          "events": [
+            {
+              "http": {
+                "method": "any",
+                "path": "",
+                "cors": {
+                  "origin": "*",
+                  "methods": [
+                    "OPTIONS",
+                    "ANY"
+                  ],
+                  "headers": [
+                    "Content-Type",
+                    "X-Amz-Date",
+                    "Authorization",
+                    "X-Api-Key",
+                    "X-Amz-Security-Token",
+                    "X-Amz-User-Agent",
+                    "X-Amzn-Trace-Id"
+                  ],
+                  "allowCredentials": "<REDACTED>"
+                },
+                "integration": "AWS_PROXY"
+              }
+            },
+            {
+              "http": {
+                "method": "any",
+                "path": "{proxy+}",
+                "cors": {
+                  "origin": "*",
+                  "methods": [
+                    "OPTIONS",
+                    "ANY"
+                  ],
+                  "headers": [
+                    "Content-Type",
+                    "X-Amz-Date",
+                    "Authorization",
+                    "X-Api-Key",
+                    "X-Amz-Security-Token",
+                    "X-Amz-User-Agent",
+                    "X-Amzn-Trace-Id"
+                  ],
+                  "allowCredentials": "<REDACTED>"
+                },
+                "integration": "AWS_PROXY"
+              }
+            }
+          ],
+          "name": "logistics-webhooks-local-webhooks",
+          "environment": {
+            "NODE_OPTIONS": "--enable-source-maps"
+          },
+          "package": {},
+          "memory": 1024,
+          "timeout": 6,
+          "runtime": "nodejs20.x",
+          "vpc": {},
+          "versionLogicalId": "WebhooksLambdaVersionjkTxadoPLI0FZmPE0h3OSmmAR9J9ErKgMdmYCpnjI"
+        },
+        "processor": {
+          "handler": "src/processor.handler",
+          "events": [
+            {
+              "sqs": {
+                "arn": {
+                  "Fn::GetAtt": [
+                    "IngestQueue",
+                    "Arn"
+                  ]
+                },
+                "batchSize": 10,
+                "maximumBatchingWindow": 5
+              }
+            }
+          ],
+          "name": "logistics-webhooks-local-processor",
+          "environment": {
+            "NODE_OPTIONS": "--enable-source-maps"
+          },
+          "package": {},
+          "memory": 1024,
+          "timeout": 6,
+          "runtime": "nodejs20.x",
+          "vpc": {},
+          "versionLogicalId": "ProcessorLambdaVersionZ0OtHuy8ayBPD7I6zbh91vZMi3RrKBm4m9ELxJw"
+        },
+        "tmsPoller": {
+          "handler": "src/poller.handler",
+          "timeout": 30,
+          "events": [
+            {
+              "schedule": "rate(2 minutes)"
+            }
+          ],
+          "name": "logistics-webhooks-local-tmsPoller",
+          "environment": {
+            "NODE_OPTIONS": "--enable-source-maps"
+          },
+          "package": {},
+          "memory": 1024,
+          "runtime": "nodejs20.x",
+          "vpc": {},
+          "versionLogicalId": "TmsPollerLambdaVersionzGc84HkR6pnAFvMR291bChhK2BBdmEuwQs8c85Hqy4"
+        }
+      },
+      "resources": {
+        "Outputs": {
+          "RestApiId": {
+            "Value": {
+              "Ref": "ApiGatewayRestApi"
+            }
+          }
+        },
+        "Resources": {
+          "IngestDLQ": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "logistics-webhooks-dlq",
+              "MessageRetentionPeriod": 1209600
+            }
+          },
+          "IngestQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "logistics-webhooks-ingest",
+              "RedrivePolicy": {
+                "deadLetterTargetArn": {
+                  "Fn::GetAtt": [
+                    "IngestDLQ",
+                    "Arn"
+                  ]
+                },
+                "maxReceiveCount": 5
+              }
+            }
+          },
+          "EventIdempotencyTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "logistics-webhooks-event-idempotency",
+              "BillingMode": "PAY_PER_REQUEST",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "eventId",
+                  "AttributeType": "S"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "eventId",
+                  "KeyType": "HASH"
+                }
+              ],
+              "TimeToLiveSpecification": {
+                "AttributeName": "ttl",
+                "Enabled": true
+              }
+            }
+          },
+          "DriverStateTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "logistics-webhooks-driver-state",
+              "BillingMode": "PAY_PER_REQUEST",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "driverId",
+                  "AttributeType": "S"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "driverId",
+                  "KeyType": "HASH"
+                }
+              ]
+            }
+          },
+          "RoutesTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "logistics-webhooks-routes",
+              "BillingMode": "PAY_PER_REQUEST",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "routeId",
+                  "AttributeType": "S"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "routeId",
+                  "KeyType": "HASH"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "provider": {
+      "name": "aws",
+      "runtime": "nodejs20.x",
+      "region": "us-east-1",
+      "stage": "local",
+      "architecture": "x86_64",
+      "environment": {
+        "NODE_OPTIONS": "--enable-source-maps",
+        "SQS_QUEUE_URL": {
+          "Ref": "IngestQueue"
+        },
+        "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+        "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+        "ROUTES_TABLE": "logistics-webhooks-routes",
+        "SIM_API_BASE": "http://host.docker.internal:4001",
+        "POLLER_CONCURRENCY": "8",
+        "EVENT_BUS_NAME": "logistics-webhooks-bus",
+        "HMAC_SECRET_GPS": "<REDACTED>",
+        "STAGE": "local"
+      },
+      "apiGateway": {
+        "shouldStartNameWithService": true
+      },
+      "iam": {
+        "role": {
+          "statements": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "sqs:SendMessage"
+              ],
+              "Resource": {
+                "Fn::GetAtt": [
+                  "IngestQueue",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:UpdateItem"
+              ],
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "EventIdempotencyTable",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::GetAtt": [
+                    "DriverStateTable",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::GetAtt": [
+                    "RoutesTable",
+                    "Arn"
+                  ]
+                }
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "events:PutEvents"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "versionFunctions": true,
+      "compiledCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "WebhooksLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/logistics-webhooks-local-webhooks"
+            }
+          },
+          "ProcessorLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/logistics-webhooks-local-processor"
+            }
+          },
+          "TmsPollerLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/logistics-webhooks-local-tmsPoller"
+            }
+          },
+          "IamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "logistics-webhooks",
+                        "local",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup",
+                          "logs:TagResource"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/logistics-webhooks-local*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/logistics-webhooks-local*:*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "sqs:SendMessage"
+                        ],
+                        "Resource": {
+                          "Fn::GetAtt": [
+                            "IngestQueue",
+                            "Arn"
+                          ]
+                        }
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "dynamodb:GetItem",
+                          "dynamodb:PutItem",
+                          "dynamodb:UpdateItem"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::GetAtt": [
+                              "EventIdempotencyTable",
+                              "Arn"
+                            ]
+                          },
+                          {
+                            "Fn::GetAtt": [
+                              "DriverStateTable",
+                              "Arn"
+                            ]
+                          },
+                          {
+                            "Fn::GetAtt": [
+                              "RoutesTable",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "events:PutEvents"
+                        ],
+                        "Resource": "*"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "sqs:ReceiveMessage",
+                          "sqs:DeleteMessage",
+                          "sqs:GetQueueAttributes"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::GetAtt": [
+                              "IngestQueue",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "logistics-webhooks",
+                    "local",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "lambdaRole"
+                  ]
+                ]
+              }
+            }
+          },
+          "WebhooksLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+                "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+              },
+              "Handler": "src/app.handler",
+              "Runtime": "nodejs20.x",
+              "FunctionName": "logistics-webhooks-local-webhooks",
+              "MemorySize": 1024,
+              "Timeout": 6,
+              "Architectures": [
+                "x86_64"
+              ],
+              "Environment": {
+                "Variables": {
+                  "NODE_OPTIONS": "--enable-source-maps",
+                  "SQS_QUEUE_URL": {
+                    "Ref": "IngestQueue"
+                  },
+                  "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                  "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                  "ROUTES_TABLE": "logistics-webhooks-routes",
+                  "SIM_API_BASE": "http://host.docker.internal:4001",
+                  "POLLER_CONCURRENCY": "8",
+                  "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                  "HMAC_SECRET_GPS": "<REDACTED>",
+                  "STAGE": "local"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "WebhooksLogGroup"
+            ]
+          },
+          "ProcessorLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+                "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+              },
+              "Handler": "src/processor.handler",
+              "Runtime": "nodejs20.x",
+              "FunctionName": "logistics-webhooks-local-processor",
+              "MemorySize": 1024,
+              "Timeout": 6,
+              "Architectures": [
+                "x86_64"
+              ],
+              "Environment": {
+                "Variables": {
+                  "NODE_OPTIONS": "--enable-source-maps",
+                  "SQS_QUEUE_URL": {
+                    "Ref": "IngestQueue"
+                  },
+                  "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                  "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                  "ROUTES_TABLE": "logistics-webhooks-routes",
+                  "SIM_API_BASE": "http://host.docker.internal:4001",
+                  "POLLER_CONCURRENCY": "8",
+                  "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                  "HMAC_SECRET_GPS": "<REDACTED>",
+                  "STAGE": "local"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "ProcessorLogGroup"
+            ]
+          },
+          "TmsPollerLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+                "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+              },
+              "Handler": "src/poller.handler",
+              "Runtime": "nodejs20.x",
+              "FunctionName": "logistics-webhooks-local-tmsPoller",
+              "MemorySize": 1024,
+              "Timeout": 30,
+              "Architectures": [
+                "x86_64"
+              ],
+              "Environment": {
+                "Variables": {
+                  "NODE_OPTIONS": "--enable-source-maps",
+                  "SQS_QUEUE_URL": {
+                    "Ref": "IngestQueue"
+                  },
+                  "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                  "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                  "ROUTES_TABLE": "logistics-webhooks-routes",
+                  "SIM_API_BASE": "http://host.docker.internal:4001",
+                  "POLLER_CONCURRENCY": "8",
+                  "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                  "HMAC_SECRET_GPS": "<REDACTED>",
+                  "STAGE": "local"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "TmsPollerLogGroup"
+            ]
+          },
+          "WebhooksLambdaVersionjkTxadoPLI0FZmPE0h3OSmmAR9J9ErKgMdmYCpnjI": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "WebhooksLambdaFunction"
+              },
+              "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+            }
+          },
+          "ProcessorLambdaVersionZ0OtHuy8ayBPD7I6zbh91vZMi3RrKBm4m9ELxJw": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "ProcessorLambdaFunction"
+              },
+              "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+            }
+          },
+          "TmsPollerLambdaVersionzGc84HkR6pnAFvMR291bChhK2BBdmEuwQs8c85Hqy4": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "TmsPollerLambdaFunction"
+              },
+              "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+            }
+          },
+          "TmsPollerEventsRuleSchedule1": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+              "ScheduleExpression": "rate(2 minutes)",
+              "State": "ENABLED",
+              "Targets": [
+                {
+                  "Arn": {
+                    "Fn::GetAtt": [
+                      "TmsPollerLambdaFunction",
+                      "Arn"
+                    ]
+                  },
+                  "Id": "tmsPollerSchedule"
+                }
+              ]
+            }
+          },
+          "TmsPollerLambdaPermissionEventsRuleSchedule1": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "TmsPollerLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Action": "lambda:InvokeFunction",
+              "Principal": "events.amazonaws.com",
+              "SourceArn": {
+                "Fn::GetAtt": [
+                  "TmsPollerEventsRuleSchedule1",
+                  "Arn"
+                ]
+              }
+            }
+          },
+          "ApiGatewayRestApi": {
+            "Type": "AWS::ApiGateway::RestApi",
+            "Properties": {
+              "Name": "logistics-webhooks-local",
+              "EndpointConfiguration": {
+                "Types": [
+                  "EDGE"
+                ]
+              },
+              "Policy": ""
+            }
+          },
+          "ApiGatewayResourceProxyVar": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+              "ParentId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "PathPart": "{proxy+}",
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayMethodOptions": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "AuthorizationType": "NONE",
+              "HttpMethod": "OPTIONS",
+              "MethodResponses": [
+                {
+                  "StatusCode": "200",
+                  "ResponseParameters": {
+                    "method.response.header.Access-Control-Allow-Origin": true,
+                    "method.response.header.Access-Control-Allow-Headers": true,
+                    "method.response.header.Access-Control-Allow-Methods": true
+                  },
+                  "ResponseModels": {}
+                }
+              ],
+              "RequestParameters": {},
+              "Integration": {
+                "Type": "MOCK",
+                "RequestTemplates": {
+                  "application/json": "{statusCode:200}"
+                },
+                "ContentHandling": "CONVERT_TO_TEXT",
+                "IntegrationResponses": [
+                  {
+                    "StatusCode": "200",
+                    "ResponseParameters": {
+                      "method.response.header.Access-Control-Allow-Origin": "'*'",
+                      "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                      "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,DELETE,GET,HEAD,PATCH,POST,PUT'"
+                    },
+                    "ResponseTemplates": {
+                      "application/json": ""
+                    }
+                  }
+                ]
+              },
+              "ResourceId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayMethodProxyVarOptions": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "AuthorizationType": "NONE",
+              "HttpMethod": "OPTIONS",
+              "MethodResponses": [
+                {
+                  "StatusCode": "200",
+                  "ResponseParameters": {
+                    "method.response.header.Access-Control-Allow-Origin": true,
+                    "method.response.header.Access-Control-Allow-Headers": true,
+                    "method.response.header.Access-Control-Allow-Methods": true
+                  },
+                  "ResponseModels": {}
+                }
+              ],
+              "RequestParameters": {},
+              "Integration": {
+                "Type": "MOCK",
+                "RequestTemplates": {
+                  "application/json": "{statusCode:200}"
+                },
+                "ContentHandling": "CONVERT_TO_TEXT",
+                "IntegrationResponses": [
+                  {
+                    "StatusCode": "200",
+                    "ResponseParameters": {
+                      "method.response.header.Access-Control-Allow-Origin": "'*'",
+                      "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                      "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,DELETE,GET,HEAD,PATCH,POST,PUT'"
+                    },
+                    "ResponseTemplates": {
+                      "application/json": ""
+                    }
+                  }
+                ]
+              },
+              "ResourceId": {
+                "Ref": "ApiGatewayResourceProxyVar"
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayMethodAny": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "ANY",
+              "RequestParameters": {},
+              "ResourceId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "ApiKeyRequired": "<REDACTED>",
+              "AuthorizationType": "NONE",
+              "Integration": {
+                "IntegrationHttpMethod": "POST",
+                "Type": "AWS_PROXY",
+                "Uri": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":apigateway:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":lambda:path/2015-03-31/functions/",
+                      {
+                        "Fn::GetAtt": [
+                          "WebhooksLambdaFunction",
+                          "Arn"
+                        ]
+                      },
+                      "/invocations"
+                    ]
+                  ]
+                }
+              },
+              "MethodResponses": []
+            },
+            "DependsOn": [
+              "WebhooksLambdaPermissionApiGateway"
+            ]
+          },
+          "ApiGatewayMethodProxyVarAny": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "ANY",
+              "RequestParameters": {},
+              "ResourceId": {
+                "Ref": "ApiGatewayResourceProxyVar"
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "ApiKeyRequired": "<REDACTED>",
+              "AuthorizationType": "NONE",
+              "Integration": {
+                "IntegrationHttpMethod": "POST",
+                "Type": "AWS_PROXY",
+                "Uri": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":apigateway:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":lambda:path/2015-03-31/functions/",
+                      {
+                        "Fn::GetAtt": [
+                          "WebhooksLambdaFunction",
+                          "Arn"
+                        ]
+                      },
+                      "/invocations"
+                    ]
+                  ]
+                }
+              },
+              "MethodResponses": []
+            },
+            "DependsOn": [
+              "WebhooksLambdaPermissionApiGateway"
+            ]
+          },
+          "ApiGatewayDeployment1755605974666": {
+            "Type": "AWS::ApiGateway::Deployment",
+            "Properties": {
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "StageName": "local"
+            },
+            "DependsOn": [
+              "ApiGatewayMethodOptions",
+              "ApiGatewayMethodProxyVarOptions",
+              "ApiGatewayMethodAny",
+              "ApiGatewayMethodProxyVarAny"
+            ]
+          },
+          "WebhooksLambdaPermissionApiGateway": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "WebhooksLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Action": "lambda:InvokeFunction",
+              "Principal": "apigateway.amazonaws.com",
+              "SourceArn": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":execute-api:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":",
+                    {
+                      "Ref": "ApiGatewayRestApi"
+                    },
+                    "/*/*"
+                  ]
+                ]
+              }
+            }
+          },
+          "ProcessorEventSourceMappingSQSIngestQueue": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "DependsOn": [
+              "IamRoleLambdaExecution"
+            ],
+            "Properties": {
+              "BatchSize": 10,
+              "MaximumBatchingWindowInSeconds": 5,
+              "EventSourceArn": {
+                "Fn::GetAtt": [
+                  "IngestQueue",
+                  "Arn"
+                ]
+              },
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "ProcessorLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Enabled": true
+            }
+          },
+          "IngestDLQ": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "logistics-webhooks-dlq",
+              "MessageRetentionPeriod": 1209600
+            }
+          },
+          "IngestQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "logistics-webhooks-ingest",
+              "RedrivePolicy": {
+                "deadLetterTargetArn": {
+                  "Fn::GetAtt": [
+                    "IngestDLQ",
+                    "Arn"
+                  ]
+                },
+                "maxReceiveCount": 5
+              }
+            }
+          },
+          "EventIdempotencyTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "logistics-webhooks-event-idempotency",
+              "BillingMode": "PAY_PER_REQUEST",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "eventId",
+                  "AttributeType": "S"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "eventId",
+                  "KeyType": "HASH"
+                }
+              ],
+              "TimeToLiveSpecification": {
+                "AttributeName": "ttl",
+                "Enabled": true
+              }
+            }
+          },
+          "DriverStateTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "logistics-webhooks-driver-state",
+              "BillingMode": "PAY_PER_REQUEST",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "driverId",
+                  "AttributeType": "S"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "driverId",
+                  "KeyType": "HASH"
+                }
+              ]
+            }
+          },
+          "RoutesTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "TableName": "logistics-webhooks-routes",
+              "BillingMode": "PAY_PER_REQUEST",
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "routeId",
+                  "AttributeType": "S"
+                }
+              ],
+              "KeySchema": [
+                {
+                  "AttributeName": "routeId",
+                  "KeyType": "HASH"
+                }
+              ]
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": "serverless-framework-deployments-us-east-1-37398299-02eb",
+            "Export": {
+              "Name": "sls-logistics-webhooks-local-ServerlessDeploymentBucketName"
+            }
+          },
+          "WebhooksLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "WebhooksLambdaVersionjkTxadoPLI0FZmPE0h3OSmmAR9J9ErKgMdmYCpnjI"
+            },
+            "Export": {
+              "Name": "sls-logistics-webhooks-local-WebhooksLambdaFunctionQualifiedArn"
+            }
+          },
+          "ProcessorLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "ProcessorLambdaVersionZ0OtHuy8ayBPD7I6zbh91vZMi3RrKBm4m9ELxJw"
+            },
+            "Export": {
+              "Name": "sls-logistics-webhooks-local-ProcessorLambdaFunctionQualifiedArn"
+            }
+          },
+          "TmsPollerLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "TmsPollerLambdaVersionzGc84HkR6pnAFvMR291bChhK2BBdmEuwQs8c85Hqy4"
+            },
+            "Export": {
+              "Name": "sls-logistics-webhooks-local-TmsPollerLambdaFunctionQualifiedArn"
+            }
+          },
+          "ServiceEndpoint": {
+            "Description": "URL of the service endpoint",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "https://",
+                  {
+                    "Ref": "ApiGatewayRestApi"
+                  },
+                  ".execute-api.",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  },
+                  "/local"
+                ]
+              ]
+            },
+            "Export": {
+              "Name": "sls-logistics-webhooks-local-ServiceEndpoint"
+            }
+          },
+          "RestApiId": {
+            "Value": {
+              "Ref": "ApiGatewayRestApi"
+            }
+          }
+        }
+      },
+      "vpc": {}
+    },
+    "dashboard": {
+      "isEnabledForService": false,
+      "requiredAuthentication": false,
+      "orgFeaturesInUse": null,
+      "orgObservabilityIntegrations": null,
+      "serviceAppId": null,
+      "serviceProvider": null,
+      "instanceParameters": null
+    },
+    "serviceRawFile": "service: logistics-webhooks\r\nframeworkVersion: '^4'\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: nodejs20.x\r\n  region: us-east-1\r\n  stage: ${opt:stage, 'local'}\r\n  architecture: x86_64\r\n  environment:\r\n    NODE_OPTIONS: --enable-source-maps\r\n    SQS_QUEUE_URL: !Ref IngestQueue\r\n    EVENT_TABLE: ${self:service}-event-idempotency\r\n    DRIVER_STATE_TABLE: ${self:service}-driver-state\r\n    ROUTES_TABLE: ${self:service}-routes\r\n    # Poller config\r\n    SIM_API_BASE: ${env:SIM_API_BASE, 'http://host.docker.internal:4001'}\r\n    POLLER_CONCURRENCY: ${env:POLLER_CONCURRENCY, '8'}\r\n    # If/when you enable the bus:\r\n    EVENT_BUS_NAME: ${self:service}-bus\r\n    HMAC_SECRET_GPS: ${env:HMAC_SECRET_GPS, 'localdev'}\r\n    STAGE: ${self:provider.stage}\r\n  apiGateway:\r\n    shouldStartNameWithService: true\r\n  iam:\r\n    role:\r\n      statements:\r\n        - Effect: Allow\r\n          Action: [sqs:SendMessage]\r\n          Resource: !GetAtt IngestQueue.Arn\r\n        - Effect: Allow\r\n          Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem]\r\n          Resource:\r\n            - !GetAtt EventIdempotencyTable.Arn\r\n            - !GetAtt DriverStateTable.Arn\r\n            - !GetAtt RoutesTable.Arn\r\n        # Uncomment if you set EVENT_BUS_NAME:\r\n        - Effect: Allow\r\n          Action: [events:PutEvents]\r\n          Resource: \"*\"\r\n\r\nplugins:\r\n  - serverless-localstack\r\n  - serverless-offline # Add this line\r\n\r\ncustom:\r\n  localstack:\r\n    debug: true\r\n    stages:\r\n      - local\r\n    host: http://localhost\r\n    edgePort: 4566\r\n    autostart: false\r\n    # lambda.mountCode is handy, but with esbuild bundling you’ll usually redeploy\r\n    lambda:\r\n      mountCode: false\r\n\r\n  esbuild:\r\n    bundle: true\r\n    minify: false\r\n    sourcemap: true\r\n    target: node20\r\n    platform: node\r\n    format: cjs            # safest; avoid ESM/CJS mismatches\r\n    external: ['express']   \r\n\r\n\r\nfunctions:\r\n  webhooks:\r\n    handler: src/app.handler\r\n    # Catch-all proxy so Express gets every route\r\n    events:\r\n      - http:\r\n          method: ANY\r\n          path: /\r\n          cors: true\r\n          integration: lambda-proxy   # make proxy explicit for REST v1\r\n      - http:\r\n          method: ANY\r\n          path: /{proxy+}\r\n          cors: true\r\n          integration: lambda-proxy\r\n\r\n  processor:\r\n    handler: src/processor.handler\r\n    events:\r\n      - sqs:\r\n          arn: !GetAtt IngestQueue.Arn\r\n          batchSize: 10\r\n          maximumBatchingWindow: 5\r\n\r\n  tmsPoller:\r\n    handler: src/poller.handler\r\n    timeout: 30\r\n    events:\r\n      - schedule: rate(2 minutes)   # EventBridge rule (simple)\r\n\r\nresources:\r\n  Outputs:\r\n    RestApiId:\r\n      Value: { Ref: ApiGatewayRestApi }\r\n  Resources:\r\n    IngestDLQ:\r\n      Type: AWS::SQS::Queue\r\n      Properties:\r\n        QueueName: ${self:service}-dlq\r\n        MessageRetentionPeriod: 1209600\r\n    IngestQueue:\r\n      Type: AWS::SQS::Queue\r\n      Properties:\r\n        QueueName: ${self:service}-ingest\r\n        RedrivePolicy:\r\n          deadLetterTargetArn: !GetAtt IngestDLQ.Arn\r\n          maxReceiveCount: 5\r\n\r\n    EventIdempotencyTable:\r\n      Type: AWS::DynamoDB::Table\r\n      Properties:\r\n        TableName: ${self:service}-event-idempotency\r\n        BillingMode: PAY_PER_REQUEST\r\n        AttributeDefinitions:\r\n          - AttributeName: eventId\r\n            AttributeType: S\r\n        KeySchema:\r\n          - AttributeName: eventId\r\n            KeyType: HASH\r\n        TimeToLiveSpecification:\r\n          AttributeName: ttl\r\n          Enabled: true\r\n\r\n    DriverStateTable:\r\n      Type: AWS::DynamoDB::Table\r\n      Properties:\r\n        TableName: ${self:service}-driver-state\r\n        BillingMode: PAY_PER_REQUEST\r\n        AttributeDefinitions:\r\n          - AttributeName: driverId\r\n            AttributeType: S\r\n        KeySchema:\r\n          - AttributeName: driverId\r\n            KeyType: HASH\r\n\r\n    RoutesTable:\r\n      Type: AWS::DynamoDB::Table\r\n      Properties:\r\n        TableName: ${self:service}-routes\r\n        BillingMode: PAY_PER_REQUEST\r\n        AttributeDefinitions:\r\n          - AttributeName: routeId\r\n            AttributeType: S\r\n        KeySchema:\r\n          - AttributeName: routeId\r\n            KeyType: HASH\r\n",
+    "command": [
+      "deploy"
+    ],
+    "options": {
+      "stage": "local"
+    },
+    "orgId": "a0413b0a-bdb8-41b2-b8d2-af256ebdb057",
+    "orgName": "wesleymreng7",
+    "userId": "xjHjfWzBgcLwx6kkjN",
+    "userName": "wesleymreng7",
+    "serviceProviderAwsAccountId": "000000000000",
+    "serviceProviderAwsCfStackName": "logistics-webhooks-local",
+    "serviceProviderAwsCfStackId": "arn:aws:cloudformation:us-east-1:000000000000:stack/logistics-webhooks-local/d9c42075",
+    "serviceProviderAwsCfStackCreated": "2025-08-19T11:54:43.410Z",
+    "serviceProviderAwsCfStackUpdated": "2025-08-19T12:18:06.845Z",
+    "serviceProviderAwsCfStackStatus": "UPDATE_COMPLETE",
+    "serviceProviderAwsCfStackOutputs": [
+      {
+        "OutputKey": "ServerlessDeploymentBucketName",
+        "OutputValue": "serverless-framework-deployments-us-east-1-37398299-02eb",
+        "ExportName": "sls-logistics-webhooks-local-ServerlessDeploymentBucketName"
+      },
+      {
+        "OutputKey": "WebhooksLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-1:000000000000:function:logistics-webhooks-local-webhooks:4",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-logistics-webhooks-local-WebhooksLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "ProcessorLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-1:000000000000:function:logistics-webhooks-local-processor:4",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-logistics-webhooks-local-ProcessorLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "TmsPollerLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-1:000000000000:function:logistics-webhooks-local-tmsPoller:4",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-logistics-webhooks-local-TmsPollerLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "ServiceEndpoint",
+        "OutputValue": "https://xexieepbng.execute-api.localhost.localstack.cloud:4566/local",
+        "Description": "URL of the service endpoint",
+        "ExportName": "sls-logistics-webhooks-local-ServiceEndpoint"
+      },
+      {
+        "OutputKey": "RestApiId",
+        "OutputValue": "xexieepbng"
+      }
+    ],
+    "compiledCloudFormationTemplate": {
+      "AWSTemplateFormatVersion": "2010-09-09",
+      "Description": "The AWS CloudFormation template for this Serverless application",
+      "Resources": {
+        "WebhooksLogGroup": {
+          "Type": "AWS::Logs::LogGroup",
+          "Properties": {
+            "LogGroupName": "/aws/lambda/logistics-webhooks-local-webhooks"
+          }
+        },
+        "ProcessorLogGroup": {
+          "Type": "AWS::Logs::LogGroup",
+          "Properties": {
+            "LogGroupName": "/aws/lambda/logistics-webhooks-local-processor"
+          }
+        },
+        "TmsPollerLogGroup": {
+          "Type": "AWS::Logs::LogGroup",
+          "Properties": {
+            "LogGroupName": "/aws/lambda/logistics-webhooks-local-tmsPoller"
+          }
+        },
+        "IamRoleLambdaExecution": {
+          "Type": "AWS::IAM::Role",
+          "Properties": {
+            "AssumeRolePolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": [
+                      "lambda.amazonaws.com"
+                    ]
+                  },
+                  "Action": [
+                    "sts:AssumeRole"
+                  ]
+                }
+              ]
+            },
+            "Policies": [
+              {
+                "PolicyName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "logistics-webhooks",
+                      "local",
+                      "lambda"
+                    ]
+                  ]
+                },
+                "PolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "logs:CreateLogStream",
+                        "logs:CreateLogGroup",
+                        "logs:TagResource"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/logistics-webhooks-local*:*"
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "logs:PutLogEvents"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/logistics-webhooks-local*:*:*"
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "sqs:SendMessage"
+                      ],
+                      "Resource": {
+                        "Fn::GetAtt": [
+                          "IngestQueue",
+                          "Arn"
+                        ]
+                      }
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "dynamodb:GetItem",
+                        "dynamodb:PutItem",
+                        "dynamodb:UpdateItem"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::GetAtt": [
+                            "EventIdempotencyTable",
+                            "Arn"
+                          ]
+                        },
+                        {
+                          "Fn::GetAtt": [
+                            "DriverStateTable",
+                            "Arn"
+                          ]
+                        },
+                        {
+                          "Fn::GetAtt": [
+                            "RoutesTable",
+                            "Arn"
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "events:PutEvents"
+                      ],
+                      "Resource": "*"
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "sqs:ReceiveMessage",
+                        "sqs:DeleteMessage",
+                        "sqs:GetQueueAttributes"
+                      ],
+                      "Resource": [
+                        {
+                          "Fn::GetAtt": [
+                            "IngestQueue",
+                            "Arn"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ],
+            "Path": "/",
+            "RoleName": {
+              "Fn::Join": [
+                "-",
+                [
+                  "logistics-webhooks",
+                  "local",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  "lambdaRole"
+                ]
+              ]
+            }
+          }
+        },
+        "WebhooksLambdaFunction": {
+          "Type": "AWS::Lambda::Function",
+          "Properties": {
+            "Code": {
+              "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+              "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+            },
+            "Handler": "src/app.handler",
+            "Runtime": "nodejs20.x",
+            "FunctionName": "logistics-webhooks-local-webhooks",
+            "MemorySize": 1024,
+            "Timeout": 6,
+            "Architectures": [
+              "x86_64"
+            ],
+            "Environment": {
+              "Variables": {
+                "NODE_OPTIONS": "--enable-source-maps",
+                "SQS_QUEUE_URL": {
+                  "Ref": "IngestQueue"
+                },
+                "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                "ROUTES_TABLE": "logistics-webhooks-routes",
+                "SIM_API_BASE": "http://host.docker.internal:4001",
+                "POLLER_CONCURRENCY": "8",
+                "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                "HMAC_SECRET_GPS": "<REDACTED>",
+                "STAGE": "local"
+              }
+            },
+            "Role": {
+              "Fn::GetAtt": [
+                "IamRoleLambdaExecution",
+                "Arn"
+              ]
+            }
+          },
+          "DependsOn": [
+            "WebhooksLogGroup"
+          ]
+        },
+        "ProcessorLambdaFunction": {
+          "Type": "AWS::Lambda::Function",
+          "Properties": {
+            "Code": {
+              "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+              "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+            },
+            "Handler": "src/processor.handler",
+            "Runtime": "nodejs20.x",
+            "FunctionName": "logistics-webhooks-local-processor",
+            "MemorySize": 1024,
+            "Timeout": 6,
+            "Architectures": [
+              "x86_64"
+            ],
+            "Environment": {
+              "Variables": {
+                "NODE_OPTIONS": "--enable-source-maps",
+                "SQS_QUEUE_URL": {
+                  "Ref": "IngestQueue"
+                },
+                "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                "ROUTES_TABLE": "logistics-webhooks-routes",
+                "SIM_API_BASE": "http://host.docker.internal:4001",
+                "POLLER_CONCURRENCY": "8",
+                "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                "HMAC_SECRET_GPS": "<REDACTED>",
+                "STAGE": "local"
+              }
+            },
+            "Role": {
+              "Fn::GetAtt": [
+                "IamRoleLambdaExecution",
+                "Arn"
+              ]
+            }
+          },
+          "DependsOn": [
+            "ProcessorLogGroup"
+          ]
+        },
+        "TmsPollerLambdaFunction": {
+          "Type": "AWS::Lambda::Function",
+          "Properties": {
+            "Code": {
+              "S3Bucket": "serverless-framework-deployments-us-east-1-37398299-02eb",
+              "S3Key": "serverless/logistics-webhooks/local/1755605983046-2025-08-19T12:19:43.046Z/logistics-webhooks.zip"
+            },
+            "Handler": "src/poller.handler",
+            "Runtime": "nodejs20.x",
+            "FunctionName": "logistics-webhooks-local-tmsPoller",
+            "MemorySize": 1024,
+            "Timeout": 30,
+            "Architectures": [
+              "x86_64"
+            ],
+            "Environment": {
+              "Variables": {
+                "NODE_OPTIONS": "--enable-source-maps",
+                "SQS_QUEUE_URL": {
+                  "Ref": "IngestQueue"
+                },
+                "EVENT_TABLE": "logistics-webhooks-event-idempotency",
+                "DRIVER_STATE_TABLE": "logistics-webhooks-driver-state",
+                "ROUTES_TABLE": "logistics-webhooks-routes",
+                "SIM_API_BASE": "http://host.docker.internal:4001",
+                "POLLER_CONCURRENCY": "8",
+                "EVENT_BUS_NAME": "logistics-webhooks-bus",
+                "HMAC_SECRET_GPS": "<REDACTED>",
+                "STAGE": "local"
+              }
+            },
+            "Role": {
+              "Fn::GetAtt": [
+                "IamRoleLambdaExecution",
+                "Arn"
+              ]
+            }
+          },
+          "DependsOn": [
+            "TmsPollerLogGroup"
+          ]
+        },
+        "WebhooksLambdaVersionjkTxadoPLI0FZmPE0h3OSmmAR9J9ErKgMdmYCpnjI": {
+          "Type": "AWS::Lambda::Version",
+          "DeletionPolicy": "Retain",
+          "Properties": {
+            "FunctionName": {
+              "Ref": "WebhooksLambdaFunction"
+            },
+            "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+          }
+        },
+        "ProcessorLambdaVersionZ0OtHuy8ayBPD7I6zbh91vZMi3RrKBm4m9ELxJw": {
+          "Type": "AWS::Lambda::Version",
+          "DeletionPolicy": "Retain",
+          "Properties": {
+            "FunctionName": {
+              "Ref": "ProcessorLambdaFunction"
+            },
+            "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+          }
+        },
+        "TmsPollerLambdaVersionzGc84HkR6pnAFvMR291bChhK2BBdmEuwQs8c85Hqy4": {
+          "Type": "AWS::Lambda::Version",
+          "DeletionPolicy": "Retain",
+          "Properties": {
+            "FunctionName": {
+              "Ref": "TmsPollerLambdaFunction"
+            },
+            "CodeSha256": "ICco28DieJoNWyoLGmk7xgXZvtyUfq9FE6Oym1s0ZIE="
+          }
+        },
+        "TmsPollerEventsRuleSchedule1": {
+          "Type": "AWS::Events::Rule",
+          "Properties": {
+            "ScheduleExpression": "rate(2 minutes)",
+            "State": "ENABLED",
+            "Targets": [
+              {
+                "Arn": {
+                  "Fn::GetAtt": [
+                    "TmsPollerLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Id": "tmsPollerSchedule"
+              }
+            ]
+          }
+        },
+        "TmsPollerLambdaPermissionEventsRuleSchedule1": {
+          "Type": "AWS::Lambda::Permission",
+          "Properties": {
+            "FunctionName": {
+              "Fn::GetAtt": [
+                "TmsPollerLambdaFunction",
+                "Arn"
+              ]
+            },
+            "Action": "lambda:InvokeFunction",
+            "Principal": "events.amazonaws.com",
+            "SourceArn": {
+              "Fn::GetAtt": [
+                "TmsPollerEventsRuleSchedule1",
+                "Arn"
+              ]
+            }
+          }
+        },
+        "ApiGatewayRestApi": {
+          "Type": "AWS::ApiGateway::RestApi",
+          "Properties": {
+            "Name": "logistics-webhooks-local",
+            "EndpointConfiguration": {
+              "Types": [
+                "EDGE"
+              ]
+            },
+            "Policy": ""
+          }
+        },
+        "ApiGatewayResourceProxyVar": {
+          "Type": "AWS::ApiGateway::Resource",
+          "Properties": {
+            "ParentId": {
+              "Fn::GetAtt": [
+                "ApiGatewayRestApi",
+                "RootResourceId"
+              ]
+            },
+            "PathPart": "{proxy+}",
+            "RestApiId": {
+              "Ref": "ApiGatewayRestApi"
+            }
+          }
+        },
+        "ApiGatewayMethodOptions": {
+          "Type": "AWS::ApiGateway::Method",
+          "Properties": {
+            "AuthorizationType": "NONE",
+            "HttpMethod": "OPTIONS",
+            "MethodResponses": [
+              {
+                "StatusCode": "200",
+                "ResponseParameters": {
+                  "method.response.header.Access-Control-Allow-Origin": true,
+                  "method.response.header.Access-Control-Allow-Headers": true,
+                  "method.response.header.Access-Control-Allow-Methods": true
+                },
+                "ResponseModels": {}
+              }
+            ],
+            "RequestParameters": {},
+            "Integration": {
+              "Type": "MOCK",
+              "RequestTemplates": {
+                "application/json": "{statusCode:200}"
+              },
+              "ContentHandling": "CONVERT_TO_TEXT",
+              "IntegrationResponses": [
+                {
+                  "StatusCode": "200",
+                  "ResponseParameters": {
+                    "method.response.header.Access-Control-Allow-Origin": "'*'",
+                    "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                    "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,DELETE,GET,HEAD,PATCH,POST,PUT'"
+                  },
+                  "ResponseTemplates": {
+                    "application/json": ""
+                  }
+                }
+              ]
+            },
+            "ResourceId": {
+              "Fn::GetAtt": [
+                "ApiGatewayRestApi",
+                "RootResourceId"
+              ]
+            },
+            "RestApiId": {
+              "Ref": "ApiGatewayRestApi"
+            }
+          }
+        },
+        "ApiGatewayMethodProxyVarOptions": {
+          "Type": "AWS::ApiGateway::Method",
+          "Properties": {
+            "AuthorizationType": "NONE",
+            "HttpMethod": "OPTIONS",
+            "MethodResponses": [
+              {
+                "StatusCode": "200",
+                "ResponseParameters": {
+                  "method.response.header.Access-Control-Allow-Origin": true,
+                  "method.response.header.Access-Control-Allow-Headers": true,
+                  "method.response.header.Access-Control-Allow-Methods": true
+                },
+                "ResponseModels": {}
+              }
+            ],
+            "RequestParameters": {},
+            "Integration": {
+              "Type": "MOCK",
+              "RequestTemplates": {
+                "application/json": "{statusCode:200}"
+              },
+              "ContentHandling": "CONVERT_TO_TEXT",
+              "IntegrationResponses": [
+                {
+                  "StatusCode": "200",
+                  "ResponseParameters": {
+                    "method.response.header.Access-Control-Allow-Origin": "'*'",
+                    "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                    "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,DELETE,GET,HEAD,PATCH,POST,PUT'"
+                  },
+                  "ResponseTemplates": {
+                    "application/json": ""
+                  }
+                }
+              ]
+            },
+            "ResourceId": {
+              "Ref": "ApiGatewayResourceProxyVar"
+            },
+            "RestApiId": {
+              "Ref": "ApiGatewayRestApi"
+            }
+          }
+        },
+        "ApiGatewayMethodAny": {
+          "Type": "AWS::ApiGateway::Method",
+          "Properties": {
+            "HttpMethod": "ANY",
+            "RequestParameters": {},
+            "ResourceId": {
+              "Fn::GetAtt": [
+                "ApiGatewayRestApi",
+                "RootResourceId"
+              ]
+            },
+            "RestApiId": {
+              "Ref": "ApiGatewayRestApi"
+            },
+            "ApiKeyRequired": "<REDACTED>",
+            "AuthorizationType": "NONE",
+            "Integration": {
+              "IntegrationHttpMethod": "POST",
+              "Type": "AWS_PROXY",
+              "Uri": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":apigateway:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":lambda:path/2015-03-31/functions/",
+                    {
+                      "Fn::GetAtt": [
+                        "WebhooksLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    "/invocations"
+                  ]
+                ]
+              }
+            },
+            "MethodResponses": []
+          },
+          "DependsOn": [
+            "WebhooksLambdaPermissionApiGateway"
+          ]
+        },
+        "ApiGatewayMethodProxyVarAny": {
+          "Type": "AWS::ApiGateway::Method",
+          "Properties": {
+            "HttpMethod": "ANY",
+            "RequestParameters": {},
+            "ResourceId": {
+              "Ref": "ApiGatewayResourceProxyVar"
+            },
+            "RestApiId": {
+              "Ref": "ApiGatewayRestApi"
+            },
+            "ApiKeyRequired": "<REDACTED>",
+            "AuthorizationType": "NONE",
+            "Integration": {
+              "IntegrationHttpMethod": "POST",
+              "Type": "AWS_PROXY",
+              "Uri": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":apigateway:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":lambda:path/2015-03-31/functions/",
+                    {
+                      "Fn::GetAtt": [
+                        "WebhooksLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    "/invocations"
+                  ]
+                ]
+              }
+            },
+            "MethodResponses": []
+          },
+          "DependsOn": [
+            "WebhooksLambdaPermissionApiGateway"
+          ]
+        },
+        "ApiGatewayDeployment1755605974666": {
+          "Type": "AWS::ApiGateway::Deployment",
+          "Properties": {
+            "RestApiId": {
+              "Ref": "ApiGatewayRestApi"
+            },
+            "StageName": "local"
+          },
+          "DependsOn": [
+            "ApiGatewayMethodOptions",
+            "ApiGatewayMethodProxyVarOptions",
+            "ApiGatewayMethodAny",
+            "ApiGatewayMethodProxyVarAny"
+          ]
+        },
+        "WebhooksLambdaPermissionApiGateway": {
+          "Type": "AWS::Lambda::Permission",
+          "Properties": {
+            "FunctionName": {
+              "Fn::GetAtt": [
+                "WebhooksLambdaFunction",
+                "Arn"
+              ]
+            },
+            "Action": "lambda:InvokeFunction",
+            "Principal": "apigateway.amazonaws.com",
+            "SourceArn": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition"
+                  },
+                  ":execute-api:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  ":",
+                  {
+                    "Ref": "ApiGatewayRestApi"
+                  },
+                  "/*/*"
+                ]
+              ]
+            }
+          }
+        },
+        "ProcessorEventSourceMappingSQSIngestQueue": {
+          "Type": "AWS::Lambda::EventSourceMapping",
+          "DependsOn": [
+            "IamRoleLambdaExecution"
+          ],
+          "Properties": {
+            "BatchSize": 10,
+            "MaximumBatchingWindowInSeconds": 5,
+            "EventSourceArn": {
+              "Fn::GetAtt": [
+                "IngestQueue",
+                "Arn"
+              ]
+            },
+            "FunctionName": {
+              "Fn::GetAtt": [
+                "ProcessorLambdaFunction",
+                "Arn"
+              ]
+            },
+            "Enabled": true
+          }
+        },
+        "IngestDLQ": {
+          "Type": "AWS::SQS::Queue",
+          "Properties": {
+            "QueueName": "logistics-webhooks-dlq",
+            "MessageRetentionPeriod": 1209600
+          }
+        },
+        "IngestQueue": {
+          "Type": "AWS::SQS::Queue",
+          "Properties": {
+            "QueueName": "logistics-webhooks-ingest",
+            "RedrivePolicy": {
+              "deadLetterTargetArn": {
+                "Fn::GetAtt": [
+                  "IngestDLQ",
+                  "Arn"
+                ]
+              },
+              "maxReceiveCount": 5
+            }
+          }
+        },
+        "EventIdempotencyTable": {
+          "Type": "AWS::DynamoDB::Table",
+          "Properties": {
+            "TableName": "logistics-webhooks-event-idempotency",
+            "BillingMode": "PAY_PER_REQUEST",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "eventId",
+                "AttributeType": "S"
+              }
+            ],
+            "KeySchema": [
+              {
+                "AttributeName": "eventId",
+                "KeyType": "HASH"
+              }
+            ],
+            "TimeToLiveSpecification": {
+              "AttributeName": "ttl",
+              "Enabled": true
+            }
+          }
+        },
+        "DriverStateTable": {
+          "Type": "AWS::DynamoDB::Table",
+          "Properties": {
+            "TableName": "logistics-webhooks-driver-state",
+            "BillingMode": "PAY_PER_REQUEST",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "driverId",
+                "AttributeType": "S"
+              }
+            ],
+            "KeySchema": [
+              {
+                "AttributeName": "driverId",
+                "KeyType": "HASH"
+              }
+            ]
+          }
+        },
+        "RoutesTable": {
+          "Type": "AWS::DynamoDB::Table",
+          "Properties": {
+            "TableName": "logistics-webhooks-routes",
+            "BillingMode": "PAY_PER_REQUEST",
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "routeId",
+                "AttributeType": "S"
+              }
+            ],
+            "KeySchema": [
+              {
+                "AttributeName": "routeId",
+                "KeyType": "HASH"
+              }
+            ]
+          }
+        }
+      },
+      "Outputs": {
+        "ServerlessDeploymentBucketName": {
+          "Value": "serverless-framework-deployments-us-east-1-37398299-02eb",
+          "Export": {
+            "Name": "sls-logistics-webhooks-local-ServerlessDeploymentBucketName"
+          }
+        },
+        "WebhooksLambdaFunctionQualifiedArn": {
+          "Description": "Current Lambda function version",
+          "Value": {
+            "Ref": "WebhooksLambdaVersionjkTxadoPLI0FZmPE0h3OSmmAR9J9ErKgMdmYCpnjI"
+          },
+          "Export": {
+            "Name": "sls-logistics-webhooks-local-WebhooksLambdaFunctionQualifiedArn"
+          }
+        },
+        "ProcessorLambdaFunctionQualifiedArn": {
+          "Description": "Current Lambda function version",
+          "Value": {
+            "Ref": "ProcessorLambdaVersionZ0OtHuy8ayBPD7I6zbh91vZMi3RrKBm4m9ELxJw"
+          },
+          "Export": {
+            "Name": "sls-logistics-webhooks-local-ProcessorLambdaFunctionQualifiedArn"
+          }
+        },
+        "TmsPollerLambdaFunctionQualifiedArn": {
+          "Description": "Current Lambda function version",
+          "Value": {
+            "Ref": "TmsPollerLambdaVersionzGc84HkR6pnAFvMR291bChhK2BBdmEuwQs8c85Hqy4"
+          },
+          "Export": {
+            "Name": "sls-logistics-webhooks-local-TmsPollerLambdaFunctionQualifiedArn"
+          }
+        },
+        "ServiceEndpoint": {
+          "Description": "URL of the service endpoint",
+          "Value": {
+            "Fn::Join": [
+              "",
+              [
+                "https://",
+                {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                ".execute-api.",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ".",
+                {
+                  "Ref": "AWS::URLSuffix"
+                },
+                "/local"
+              ]
+            ]
+          },
+          "Export": {
+            "Name": "sls-logistics-webhooks-local-ServiceEndpoint"
+          }
+        },
+        "RestApiId": {
+          "Value": {
+            "Ref": "ApiGatewayRestApi"
+          }
+        }
+      }
+    }
+  }
+}
