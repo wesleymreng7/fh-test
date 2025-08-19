@@ -34,8 +34,8 @@ Due to time constraints, not all debugging and best practices could be fully app
 - Threshold radius (e.g., 100m) used to infer arrival events.
 
 ### 2.6 Notifications
-- **SNS Topic**: Publishes notifications when arrival/delivery events are detected.
-- Consumers could be mobile apps, monitoring dashboards, or external systems.
+- **EventBridge Event Bus**: Publishes events when arrival, delivery and other events are detected.
+- Downstream consumers (e.g., mobile apps, dashboards, external systems) can subscribe to these events for notifications or further processing.
 
 ### 2.7 Simulator
 - A **custom simulator** was built to generate realistic driver GPS pings.
